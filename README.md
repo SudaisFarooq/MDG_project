@@ -45,9 +45,9 @@ python app.py
 
 
 ## Team Members
-- Member 1
-- Member 2
-- Member 3
+- SUDAID FAROOQ
+- MOHAMMED SAIF
+- SPARSH AGRAWAL
 
 ## License
 This project is for academic and educational purposes

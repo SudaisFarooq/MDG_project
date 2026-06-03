@@ -5,4 +5,3 @@ joblib
 numpy
 scikit-learn
 gunicorn
-tensorflow

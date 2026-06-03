@@ -37,15 +37,11 @@ def convert_binary_to_flood_category(value):
     return flood_mapping.get(value, "Unknown")
 
 
-# ----------------------------
-# 1. Load Random Forest model
-# ----------------------------
+
 rf_model_path =  os.path.join(os.path.dirname(__file__), 'models', 'random_forest_model.pkl')
 rf_model = joblib.load(rf_model_path) 
 
-# ----------------------------
-# 2. Load LSTM models + scalers
-# ----------------------------
+
 lstm_models = {}
 scalers = {}
 
@@ -63,9 +59,7 @@ for v in village_names:
     except Exception as e:
         print(f"Warning: Could not load model/scaler for {v}: {e}")
 
-# ----------------------------
-# 3. Village coordinates and elevations
-# ----------------------------
+
 village_coords = {
     "Khatima": (28.92, 79.97), "Kashipur": (29.22, 78.96),
     "Jaspur": (29.29, 78.82), "dineshpur": (28.97, 79.42),
@@ -80,10 +74,6 @@ village_elevations = {
     "Haldwani": 424, "Nainital": 1938, "sitarganj": 259, "nanakmatta": 230,
     "Bazpur": 205, "pantnagar": 243, "Pilibhit": 172
 }
-
-# ----------------------------
-# 4. Fetch rainfall data
-# ----------------------------
 def fetch_recent_data(lat, lon, start_date, end_date):
     url = (
         f"https://power.larc.nasa.gov/api/temporal/daily/point?"
@@ -108,9 +98,7 @@ def fetch_recent_data(lat, lon, start_date, end_date):
     df['rainfall'] = df['rainfall'].apply(lambda x: np.nan if x < 0 or x > 1000 else x).ffill().fillna(0)
     return df
 
-# ----------------------------
-# 5. Predict rainfall using LSTM
-# ----------------------------
+
 def predict_rainfall(village, last_sequence, days=7):
     lstm_model = lstm_models[village]
     scaler = scalers[village]
@@ -125,9 +113,7 @@ def predict_rainfall(village, last_sequence, days=7):
     future_rain[future_rain < 0] = 0
     return future_rain
 
-# ----------------------------
-# 6. Predict flood, rainfall, elevation
-# ----------------------------
+
 def predict_flood(village, start_date=None, end_date=None):
     if village not in village_coords:
         raise ValueError(f"Village '{village}' not recognized")
@@ -139,9 +125,7 @@ def predict_flood(village, start_date=None, end_date=None):
     time_steps = 50
     scaler = scalers[village]
 
-    # ----------------------------
-    # CASE 1: Past-date prediction (reanalysis)
-    # ----------------------------
+   
     if start_date and end_date:
         start_date_obj = pd.to_datetime(start_date).date()
         end_date_obj = pd.to_datetime(end_date).date()
@@ -172,9 +156,7 @@ def predict_flood(village, start_date=None, end_date=None):
             "forecast": forecast
         }
 
-    # ----------------------------
-    # CASE 2: Future prediction (forecast)
-    # ----------------------------
+   
     else:
         # Fetch recent rainfall for LSTM input
         fetch_days = max(time_steps, 60)
@@ -187,21 +169,21 @@ def predict_flood(village, start_date=None, end_date=None):
         if len(df) < time_steps:
             raise ValueError("Not enough data to predict")
 
-        # Prepare last sequence and predict next 7 days rainfall
+       
         rain_scaled = scaler.transform(df[['rainfall']].values)
         last_seq = rain_scaled[-time_steps:].reshape(1, time_steps, 1)
         future_rain = predict_rainfall(village, last_seq, days=7)
 
-        # Generate future dates
+       
         last_date = df['date'].max()
         future_dates = [last_date + datetime.timedelta(days=i + 1) for i in range(7)]
 
-        # Predict flood risk using LSTM-predicted rainfall
+   
         flood_preds = []
         for rain_val in future_rain:
             rf_input = np.array([[elevation, rain_val]])
             flood_preds.append(str(rf_model.predict(rf_input)[0]))
-            # --- Check feature order of the Random Forest model ---
+            
        
         forecast = []
         for d, r, f in zip(future_dates, future_rain, flood_preds):

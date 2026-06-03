@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flood Prediction</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background:#001322; color:#eef; text-align:center; margin:0; }
+    h1 { margin-top:20px; color:#00c6ff; }
+    form { background:rgba(255,255,255,0.05); padding:20px; margin:20px auto; max-width:600px; border-radius:15px; }
+    #chartContainer { margin:20px auto; width:90%; max-width:800px; display:none; background:rgba(255,255,255,0.05); padding:20px; border-radius:15px; }
+    select, input[type=date] { width:100%; padding:10px; border-radius:8px; border:1px solid #046; background:#012; color:#fff; margin:6px 0; }
+    button { background:#00aaff; border:none; padding:12px 20px; border-radius:10px; color:#fff; cursor:pointer; margin-top:10px; }
+    button:hover { background:#00ccff; }
+    label, p { display:block; text-align:left; margin-top:10px; color:#aad; font-weight:bold; }
+    #floodOutput { margin-top:20px; text-align:left; max-width:800px; margin-left:auto; margin-right:auto; background:rgba(255,255,255,0.05); padding:20px; border-radius:15px; }
+  </style>
+</head>
+<body>
+  <h1>Flood Prediction</h1>
+  <form id="predictForm">
+    <p>Prediction for selected dates (leave empty for next 7 days)</p>
+
+    <label for="village">Select Your Village:</label>
+    <select id="village" required>
+      <option value="">-- Select a Village --</option>
+      <option value="Khatima">Khatima</option>
+      <option value="Kashipur">Kashipur</option>
+      <option value="Pilibhit">Pilibhit</option>
+      <option value="Bazpur">Bazpur</option>
+      <option value="Nainital">Nainital</option>
+      <option value="Haldwani">Haldwani</option>
+      <option value="Jaspur">Jaspur</option>
+      <option value="pantnagar">Pantnagar</option>
+      <option value="nanakmatta">Nanakmatta</option>
+      <option value="dineshpur">Dineshpur</option>
+      <option value="sitarganj">Sitarganj</option>
+    </select>
+
+    <label for="start_date">Start Date (optional):</label>
+    <input type="date" id="start_date" />
+
+    <label for="end_date">End Date (optional):</label>
+    <input type="date" id="end_date" />
+
+    <button type="submit">Get Prediction</button>
+  </form>
+
+  <div id="chartContainer">
+    <canvas id="predictionChart"></canvas>
+  </div>
+
+  <div id="floodOutput"></div>
+
+  <script>
+    const form = document.getElementById('predictForm');
+    const chartContainer = document.getElementById('chartContainer');
+    const floodOutput = document.getElementById('floodOutput');
+    let predictionChart = null;
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const village = document.getElementById('village').value;
+      const start_date = document.getElementById('start_date').value || null;
+      const end_date = document.getElementById('end_date').value || null;
+
+      if (!village) return alert("Please select a village.");
+
+      try {
+        const response = await fetch('/predict', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ village, start_date, end_date })
+        });
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (e) {
+          throw new Error("Server returned invalid or empty JSON. Check backend logs.");
+        }
+
+        if (!data) throw new Error("No data returned from server.");
+        if (data.error) throw new Error(data.error);
+
+        const dates = data.forecast.map(d => d.date);
+        const rain_mm = data.forecast.map(d => d.rainfall);
+        const flood_risk = data.forecast.map(d => d.flood_risk);
+        const elevation = data.forecast[0].elevation;
+
+        renderChart(dates, rain_mm);
+        renderFloodOutput(dates, flood_risk, elevation);
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    });
+
+    function renderChart(dates, rain_mm) {
+      chartContainer.style.display = "block";
+      if (predictionChart) predictionChart.destroy();
+      const ctx = document.getElementById('predictionChart').getContext('2d');
+      predictionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Predicted Rainfall (mm)',
+            data: rain_mm,
+            borderColor: '#00ccff',
+            backgroundColor: 'rgba(0,204,255,0.2)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          scales: {
+            x: { ticks: { color: '#88d' } },
+            y: { ticks: { color: '#88d' } }
+          },
+          plugins: { legend: { labels: { color: '#fff' } } }
+        }
+      });
+    }
+
+    function renderFloodOutput(dates, flood_risk, elevation) {
+      let html = `<p><strong>Elevation:</strong> ${elevation} meters</p>`;
+      html += "<table style='width:100%; border-collapse: collapse;'>";
+      html += "<tr><th style='text-align:left; padding:4px;'>Date</th><th style='text-align:left; padding:4px;'>Flood Risk</th></tr>";
+      for (let i = 0; i < dates.length; i++) {
+        html += `<tr><td style='padding:4px;'>${dates[i]}</td><td style='padding:4px;'>${flood_risk[i]}</td></tr>`;
+      }
+      html += "</table>";
+
+      // ✅ Flood Risk Legend Box
+      html += `
+        <div style="background:rgba(0, 204, 255, 0.1); padding:15px; border-left:4px solid #00c6ff; border-radius:10px; margin-top:15px;">
+          <p style="margin:0; font-weight:bold; color:#00c6ff;">Flood Risk Levels:</p>
+          <p style="margin:4px 0; color:#aaddff;">0 → No Flood</p>
+          <p style="margin:4px 0; color:#aaddff;">1 → Low Flood Risk</p>
+          <p style="margin:4px 0; color:#aaddff;">2 → Medium Flood Risk</p>
+          <p style="margin:4px 0; color:#aaddff;">3 → High Flood Risk</p>
+        </div>
+      `;
+
+      floodOutput.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

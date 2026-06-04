@@ -46,7 +46,7 @@ python app.py
 
 ## Team Members
 - SUDAIS FAROOQ
-- MOHAMMED SAIF
+- MOHAMMAD SAIF
 - SPARSH AGRAWAL
 
 ## License

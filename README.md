@@ -45,7 +45,7 @@ python app.py
 
 
 ## Team Members
-- SUDAID FAROOQ
+- SUDAIS FAROOQ
 - MOHAMMED SAIF
 - SPARSH AGRAWAL
 
